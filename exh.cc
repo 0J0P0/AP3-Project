@@ -16,7 +16,8 @@ struct Upgrade {
 };
 
 vector<Upgrade> upgrades;
-
+vector<int> car_in_class;
+vector<vector<bool>> Classes;
 
 void read_input_file(const string& input_file)
 {
@@ -25,7 +26,7 @@ void read_input_file(const string& input_file)
         f >> C >> M >> K;
         upgrades = vector<Upgrade>(M);
         Classes = vector<vector<bool>>(K,vector<bool>(M,false));  // Matrix with row of classes and each column represents an upgrade.
-        car_per_class = vector<int>(K);  // Number of cars in each class.
+        car_in_class = vector<int>(K);  // Number of cars in each class.
         for (int e = 0; e < M; e++)
             f >> upgrades[e].c;
         for (int e = 0; e < M; e++)
@@ -33,10 +34,10 @@ void read_input_file(const string& input_file)
 
         for (int class_id = 0; class_id < K; ++class_id) {
             int aux;
-            in >> aux >> car_per_class[class_id];
+            f >> aux >> car_in_class[class_id];
             for (int o = 0; o < M; ++o) {
-                in >> aux;
-                Classes[class_id][o] = (aux == 1);
+                f >> aux;
+                Classes[class_id][o] = aux;
             }
         }
     } else
