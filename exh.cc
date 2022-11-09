@@ -15,59 +15,78 @@ struct Upgrade {
     int c;
 };
 
+vector<int> solution;
 vector<Upgrade> upgrades;
 vector<int> car_in_class;
-vector<vector<bool>> Classes;
+vector<vector<bool>> classes;
 
-void read_input_file(const string& input_file)
+void read_input_file(ifstream& in)
 {
-    ifstream f(input_file);
-    if (f.is_open()) {
-        f >> C >> M >> K;
+    if (in.is_open()) {
+        in >> C >> M >> K;
+
         upgrades = vector<Upgrade>(M);
-        Classes = vector<vector<bool>>(K,vector<bool>(M,false));  // Matrix with row of classes and each column represents an upgrade.
+        classes = vector<vector<bool>>(K, vector<bool>(M, false));  // Matrix with row of classes and each column represents an upgrade.
         car_in_class = vector<int>(K);  // Number of cars in each class.
+
         for (int e = 0; e < M; e++)
-            f >> upgrades[e].c;
+            in >> upgrades[e].c;
         for (int e = 0; e < M; e++)
-            f >> upgrades[e].n;
+            in >> upgrades[e].n;
 
         for (int class_id = 0; class_id < K; ++class_id) {
             int aux;
-            f >> aux >> car_in_class[class_id];
-            for (int o = 0; o < M; ++o) {
-                f >> aux;
-                Classes[class_id][o] = aux;
+            in >> aux >> car_in_class[class_id];
+            for (int e = 0; e < M; ++e) {
+                in >> aux;
+                classes[class_id][e] = aux;
             }
         }
-    } else
-        cout << "Couldn't open " << input_file << '.' << endl;
-    f.close();
+        in.close();  //close here or back at main?
+    } else {
+        cout << "Couldn't read." << endl;
+        exit(1);
+    }
 }
 
+void write_output_file(ofstream& out, double duration)
+{
+    out.setf(ios::fixed);
+    out.precision(1);
+
+    int s = solution.size();
+    if (out.is_open())
+    {
+        out << T << " " << duration << endl;
+        out << solution[0];
+        for (int i = 1; i < s; i++)
+            out << " " << solution[i];
+        out.close();
+    } else {
+        cout << "Couldn't write." << endl;
+        exit(1);
+    }
+}
 
 int main(int argc, const char *argv[])
 {
-    cout.setf(ios::fixed);
-    cout.precision(1);
-
     if (argc != 3)
     {
         cout << "Two arguments required: input and output file." << endl;
         exit(1);
     }
-    read_input_file(argv[1]);
-    
-    // Get starting timepoint
-    auto start = high_resolution_clock::now();
-    //...
-    //...
+    ifstream input_file(argv[1],ifstream::in);
+    read_input_file(input_file);
 
-    //...
-    //...
-    // Get ending timepoint
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<seconds>(stop - start);
-    cout << "Time taken by function: " << (double)duration.count() << " seconds" << endl;
-    // write_output_file(argv[2], ... , (double)duration.count());
+    T = 0;
+    solution = vector<int>(C, -1);
+    auto start = high_resolution_clock::now();  // Get starting timepoint
+
+    exh()
+
+    auto end = high_resolution_clock::now();  // Get ending timepoint
+    auto duration = duration_cast<seconds>(end - start);
+
+    ofstream output_file(argv[2],ofstream::out);
+    write_output_file(output_file, (double)duration.count());
 }
