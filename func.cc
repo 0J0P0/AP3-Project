@@ -35,6 +35,30 @@ int sum_upgrade_pen(const vector<int>& seq, int n, int c)
     return (pen);
 }
 
+// Mejora
+// int sum_upgrade_pen(const vector<int>& seq, int n, int c)
+// {
+//     int pen = 0;
+//     int upgr = 0;
+//     int s = seq.size();
+
+//     for(int j = 0; j < n; j++){
+//         upgr += seq[j];
+//         pen += max(upgr-c, 0);
+//     }
+
+//     for(int j = n; j < s; j++){
+//         upgr+= seq[j] - seq[j-n];
+//         pen += max(upgr-c, 0);
+//     }
+//     upgr = 0;
+//     for(int j = s-1; j > s-n; j--){
+//         upgr += seq[j];
+//         pen += max(upgr-c, 0);
+//     }
+//     return pen;
+// }
+
 int main()
 {
     printf("%d\n", sum_upgrade_pen({0,0,1,0,1,0,0,1,1,1,0}, 3, 1));
