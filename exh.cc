@@ -71,7 +71,7 @@ void write_output_file(ofstream& out, double duration)
 }
 
 
-int sum_upgrade_pen(const vector<int>& seq, int n, int c, bool complete_seq)
+int upgrade_pen(const vector<int>& seq, int n, int c, bool complete_seq)
 {
     int pen = 0;
     int upgr = 0;
@@ -102,7 +102,7 @@ int sum_penalizations(const vector<vector<int>>& ass_chain, bool complete_seq)
     for (int m = 0; m < M; m++) {
         int n_e = upgrades[m].n;
         int c_e = upgrades[m].c;
-        total_pen += sum_upgrade_pen(ass_chain[m], n_e, c_e, complete_seq);
+        total_pen += upgrade_pen(ass_chain[m], n_e, c_e, complete_seq);
     }
     return total_pen;    
 }
