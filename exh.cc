@@ -107,14 +107,64 @@ int sum_penalizations(const vector<vector<int>>& ass_chain, bool complete_seq)
     return total_pen;    
 }
 
+int upgrade_pen_partial(const vector<int>& seq, int n, int c, int k){
 
-void exh_rec(int k, vector<vector<int>>& ass_chain, vector<int>& curr_sol, const string& output_file, clock_t start)
-{
-    int curr_pen = sum_penalizations(ass_chain, false);
+    int pen = 0;
+    int upgr = 0;
+    if(k < n){
+        for(int i = 0; i < k; i++){
+            upgr += seq[i];
+        }
+        pen += max(upgr-c, 0);
+    } else if(k >= n){
+        for(int i = 0; i < n; i++){
+            upgr += seq[k-i];
+        }
+        pen += max(upgr-c, 0);
+    }
+    return pen;
+}
+
+int last_uncomplete_windows(const vector<int>& seq, int n, int c){
+    int upgr = 0;
+    int size = seq.size();
+    int pen = 0;
+    for(int j = size-1; j > size-n; j--) {
+        upgr += seq[j];
+        pen += max(upgr-c, 0);
+    }
+    return pen;
+}
+
+int partial_penalizations(const vector<vector<int>>& ass_chain, bool complete_seq, int k){
+
+    int curr_pen = 0;
+    if(not complete_seq){
+        for (int m = 0; m < M; m++) {
+            int n_e = upgrades[m].n;
+            int c_e = upgrades[m].c;
+            curr_pen += upgrade_pen_partial(ass_chain[m], n_e, c_e, k);
+        }
+    } else{
+        for (int m = 0; m < M; m++) {
+            int n_e = upgrades[m].n;
+            int c_e = upgrades[m].c;
+            curr_pen += last_uncomplete_windows(ass_chain[m], n_e, c_e);
+        }
+    }
+    return curr_pen;    
+}
+
+//añadimos el parámetro curr_pen
+void exh_rec(int k, vector<vector<int>>& ass_chain, vector<int>& curr_sol, const string& output_file, clock_t start, int curr_pen)
+{   
+    curr_pen += partial_penalizations(ass_chain, false, k); //en lugar de calcular todo el rato la penalización parcial, la ctualizamos
+    //int curr_pen = sum_penalizations(ass_chain, false);
     if (curr_pen >= T)
         return;
     if (k == C) {
-        int curr_pen = sum_penalizations(ass_chain, true);
+        //int curr_pen = sum_penalizations(ass_chain, true);
+        curr_pen += partial_penalizations(ass_chain, true, k);
         if (curr_pen < T) {
             T = curr_pen;
             solution = curr_sol;
@@ -133,7 +183,7 @@ void exh_rec(int k, vector<vector<int>>& ass_chain, vector<int>& curr_sol, const
                 for (int m = 0; m < M; m++)  // agregas las mejoras de la clase
                     ass_chain[m][k] = classes[class_id][m];
 
-                exh_rec(k + 1, ass_chain, curr_sol, output_file, start);
+                exh_rec(k + 1, ass_chain, curr_sol, output_file, start, curr_pen);
 
                 car_in_class[class_id]++;
                 curr_sol[k] = -1;
@@ -154,7 +204,8 @@ void exh(const string& output_file)
 
     clock_t start;
     start = clock();
-    exh_rec(0 ,ass_chain, curr_sol, output_file, start);
+    exh_rec(0 ,ass_chain, curr_sol, output_file, start, 0);
+    cout << 
 }
 
 
