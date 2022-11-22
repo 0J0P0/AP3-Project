@@ -1,7 +1,12 @@
 import os
+import sys
 
+"""
+Programmm that reads all the benchs from a specific mode and computes it's total
+penalization and the medium time.
+"""
 
-mode = "easy" + "-"
+mode = str(sys.argv[1]) + "-"
 data_path: str = "./benchs_results/"
 
 
@@ -15,8 +20,8 @@ def main():
             nums = line.split()
             total_T += int(nums[0])
             time.append(float(nums[1]))
-    print(f"Total penalization for the {mode}mode is: {total_T} with a medium time of: {sum(time)/len(time)} seconds")
-    print(f"Time for each bench: {time}")
+    print(f"\ncTotal penalization for the {mode}mode is: {total_T} with a medium time of: {sum(time)/len(time)} seconds")
+    print(f"\nTime for each bench: {time}\n")
 
 if __name__ == "__main__":
     main()
