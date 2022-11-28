@@ -1,3 +1,5 @@
+// llamar entre archivos
+
 #include <iostream>
 #include <fstream>
 #include <climits>
@@ -75,22 +77,25 @@ void write_output_file(const vector<int>& solution, ofstream& out, double durati
     }
 }
 
+
+// Computes density of a class, i.e. the number of 1's in the class.
+int density_class(const vector<vector<bool>>& classes, int class_id)
+{
+    int density = 0;
+    for (int i = 0; i < (int)classes[class_id].size(); i++)
+        if (classes[class_id][i])
+            density++;
+    return (density);
+}
+
+
 // Computes and returns the penalization of a class.
 int class_pen(const vector<int>& seq, int n, int c, int k)
 {
     int pen = 0;
     int upg = 0;
     if (k == C-1) {  // complete sequence
-        //
-        for (int i = 0; i < n; i++)
-            upg += seq[k-i];
-        pen += max(upg - c, 0);
-        
-        upg = 0;
-        
-        // ventanas partidas
-        for (int i = 0; i < n-1; i++)
-        {
+        for (int i = 0; i < n; i++) {
             upg += seq[k-i];
             pen += max(upg - c, 0);
         }
@@ -100,13 +105,14 @@ int class_pen(const vector<int>& seq, int n, int c, int k)
                 upg += seq[k-i];
             pen += max(upg - c, 0);
         } else {
-            for (int i = 0; i < n; i++)
+             for (int i = 0; i <= k; i++)
                 upg += seq[i];
-            pen += max(upg - c, 0);            
+            pen += max(upg - c, 0);           
         }
     }
     return (pen);
 }
+
 
 // Computes and returns the penalization for all the classses.
 int sum_penalization(const vector<Upgrade>& upgrades, const matrix& ass_chain, int k)
@@ -120,21 +126,24 @@ int sum_penalization(const vector<Upgrade>& upgrades, const matrix& ass_chain, i
     return total_pen;    
 }
 
+
+// Search the most requested class, in terms of cars per class.
 int find_max_class(vector<int> car_in_class){
     
-    int max = 0;
     int max_class = 0;
-    for (int class_id = 0; class_id < K; class_id++){
-            if(car_in_class[class_id] > max){
-                max = car_in_class[class_id];
-                max_class = class_id;
+    int argmax_class = 0;
+    for (int class_id = 0; class_id < K; class_id++) {
+            if(car_in_class[class_id] > max_class) {
+                max_class = car_in_class[class_id];
+                argmax_class = class_id;
             }
         }
-    return max_class;
+    return (argmax_class);
 }
+
+
 // Finds a semi-optimal solution as fast as possible.
-void greedy(const vector<Upgrade>& upgrades, vector<int>& car_in_class,
-        const vector<vector<bool>>& classes, const string& output_file)
+void greedy(Production& P, const string& output_file)
 {
     T = INT_MAX;
     vector<int> solution(C, -1);
@@ -142,31 +151,44 @@ void greedy(const vector<Upgrade>& upgrades, vector<int>& car_in_class,
 
     clock_t start;
     start = clock();
-    int max_class = find_max_class(car_in_class); // we look for the most requested class, since the first upgrade won't have a penalization
-    car_in_class[max_class]--;
+
+    int max_class = find_max_class(P.car_in_class); // we look for the most requested class, since the first upgrade won't have a penalization
+    P.car_in_class[max_class]--;
     solution[0] = max_class;
     for (int m = 0; m < M; m++)
-                    ass_chain[m][0] = classes[max_class][m];
+        ass_chain[m][0] = P.classes[max_class][m];
     int k = 1;
     int curr_pen = 0;
-    while(k < C){
+    while(k < C) {
         int min_add = T;
         int min_class = 0;
         for (int class_id = 0; class_id < K; class_id++){
-            if(car_in_class[class_id] > 0){
-                for (int m = 0; m < M; m++) ass_chain[m][k] = classes[class_id][m];
-                int class_pen = sum_penalization(upgrades, ass_chain, k);
-                if(class_pen < min_add){ 
+            if(P.car_in_class[class_id] > 0) {
+                for (int m = 0; m < M; m++)
+                    ass_chain[m][k] = P.classes[class_id][m];
+                int class_pen = sum_penalization(P.upgrades, ass_chain, k);
+                if (class_pen < min_add) {
                     min_add = class_pen;
                     min_class = class_id;
+                } else if (class_pen == min_add) { // criterio de numero de coches
+                    if (P.car_in_class[min_class] < P.car_in_class[class_id]) {
+                        min_class = class_id;
+                        min_add = class_pen;
+                    } else if (P.car_in_class[min_class] == P.car_in_class[class_id]) {
+                          int min_dens = density_class(P.classes, min_class);
+                          int class_dens = density_class(P.classes, class_id);
+                          if (min_dens < class_dens) {
+                              min_class = class_id;
+                              min_add = class_pen;
+                          }
+                    }
                 }
             }
-
         }
-        for (int m = 0; m < M; m++) ass_chain[m][k] = classes[min_class][m];
+        for (int m = 0; m < M; m++) ass_chain[m][k] = P.classes[min_class][m];
         curr_pen += min_add;
         solution[k] = min_class;
-        car_in_class[min_class]--;
+        P.car_in_class[min_class]--;
         k++;
     }
     
@@ -188,7 +210,7 @@ int main(int argc, const char *argv[])
     ifstream input(argv[1],ifstream::in);
     
     Production P = read_input_file(input);
-    greedy(P.upgrades, P.car_in_class, P.classes, argv[2]);
+    greedy(P, argv[2]);
     
     return (0);
 }

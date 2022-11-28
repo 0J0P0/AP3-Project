@@ -23,6 +23,7 @@ int inputUB;
 
 int costSolution;
 vector<int> solution;
+
 void readInput(ifstream& in) {
   in >> nCars >> nOptions >> nClasses;
   options = vector<Option>(nOptions);
@@ -53,10 +54,10 @@ void readSolution(ifstream& in){
 int countViolations (const vector<int>& solution, const vector<vector<bool>>& classOption) {
   int v = 0;
   vector<int> countOption(nOptions,0);
-  for (uint i = 0; i < solution.size(); ++i) {
+  for (uint i = 0; i < solution.size(); ++i) {  // i = class_id
     for (int o = 0; o < nOptions; ++o) {
-      if (classOption[solution[i]][o]) 	++countOption[o];
-      int ejectingPos = i-options[o].n;
+      if (classOption[solution[i]][o]) 	++countOption[o];  // suma unos de la clase del class_id
+      int ejectingPos = i-options[o].n;  // class_id - n
       if (ejectingPos >= 0 and classOption[solution[ejectingPos]][o]) --countOption[o];
       if (countOption[o] > options[o].c) v+=(countOption[o] - options[o].c);
     }
@@ -102,7 +103,7 @@ void checkSolution( ){
   if (not error) cout << "Solution is OK" << endl;
 }
 
-int main (int argc, char** argv ){
+int main (int argc, char** argv ) {
   // Input Solution
   if (argc != 3) {
     cout << "Syntax is: " << argv[0] << " input_file sol_file" << endl;

@@ -3,12 +3,12 @@ import sys
 
 
 """
-Programm to execute a programm (exh.cc, greedy.cc, mh.cc) for all the files in 
+Programm to execute check.cc programm for all the files in 
 a specific mode.
 """
 
-mode = str(sys.argv[2]) + "-"
-prog = str(sys.argv[1])
+mode = str(sys.argv[1]) + "-"
+prog = "check.cc"
 
 def main():
     if mode == "easy-" or mode == "med-":
@@ -16,14 +16,12 @@ def main():
             input = "./public_benchs/" + mode + str(i) + ".txt"
             output = "./benchs_results/" + mode + str(i) + ".txt"
             sp.call(["g++", "-Wall", "-O2", "-std=c++17", prog]) 
-            print("Excecuting bench: " + mode + str(i) + ".txt")
             sp.call(args=["./a.out", input, output])
     elif mode == "hard-":
         for i in range(1, 21):
             input = "./public_benchs/" + mode + str(i) + ".txt"
             output = "./benchs_results/" + mode + str(i) + ".txt"
             sp.call(["g++", "-Wall", "-O2", "-std=c++17", prog]) 
-            print("Excecuting bench: " + mode + str(i) + ".txt")
             sp.call(args=["./a.out", input, output])
 
 
