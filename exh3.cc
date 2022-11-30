@@ -147,12 +147,12 @@ int find_max_class(vector<int> car_in_class){
 
 int min_penalization_class(const vector<Upgrade>& upgrades, const vector<int>& car_in_class,
                             const vector<vector<bool>>& classes, const vector<bool>& vis,
-                            matrix& ass_chain, int k)
+                            matrix& ass_chain, const vector<int>& solution, int k)
 {
     int best_class = -1;
     int new_pen = INT_MAX;
     for (int class_id = 0; class_id < K; class_id++) {
-        if (not vis[class_id] and car_in_class[class_id] > 0) {
+        if (not vis[class_id] and car_in_class[class_id] > 0 /*and solution[k] != class_id*/) {
             for (int m = 0; m < M; m++)
                 ass_chain[m][k] = classes[class_id][m];  // se agrega pero no se deberia quitar
 
@@ -187,10 +187,11 @@ void exh_rec(const vector<Upgrade>& upgrades, vector<int>& car_in_class, const v
 {
     if (curr_pen >= T)
         return;
-    
 
     if (k == C) {
-        if (curr_pen < T) {
+        // cout << "nueva sol: ";
+        if (curr_pen < T) {  // este no esta de mas si esta el if de arriba?
+            // cout << "escribe sol" << endl;
             T = curr_pen;
             solution = curr_sol;
             clock_t end = clock() - start;
@@ -200,16 +201,14 @@ void exh_rec(const vector<Upgrade>& upgrades, vector<int>& car_in_class, const v
         }
     } else {
         vector<bool> vis(K, false);
-        vector<int> aux = car_in_class;
         for (int i = 0; i < K; i++) {
-            // cout << k << " i: " << i << endl;
-            int class_id = min_penalization_class(upgrades, aux, classes, vis, ass_chain, k);
-            if (class_id == -1) 
+            // curr_pen menos que pen de la solution
+            int class_id = min_penalization_class(upgrades, car_in_class, classes, vis, ass_chain, solution, k);
+            if (class_id == -1)
                 return;
             else {
                 car_in_class[class_id]--;
                 vis[class_id] = true;
-                aux[class_id]--;
             
                 // update assembly chain with a new car of class_id and its upgrades.
                 curr_sol[k] = class_id;  
@@ -222,6 +221,15 @@ void exh_rec(const vector<Upgrade>& upgrades, vector<int>& car_in_class, const v
                     curr_pen += sum_penalization(upgrades, ass_chain, k);
                 else  // if (k == C-1)
                     curr_pen += sum_penalization(upgrades, ass_chain, k);
+
+                // cout << "Rec level: " << k << " iteration: " << i << endl;
+                //   cout << "Current solution";
+                // for (auto e : curr_sol)
+                //     cout << " " << e;
+                // cout << " |||| Solution";
+                // for (auto e : solution)
+                //     cout << " " << e;
+                // cout << endl << "------------------------------------------------------------------------" << endl;
 
                 exh_rec(upgrades, car_in_class, classes, ass_chain, curr_sol, solution, k+1, curr_pen, output_file, start);
 
