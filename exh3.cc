@@ -236,9 +236,9 @@ void exh_rec(const vector<Upgrade>& upgrades, vector<int>& car_in_class, const v
                 // restore assembly chain.
                 curr_pen = tmp;
                 car_in_class[class_id]++;
-                curr_sol[k] = -1;
-                for (int m = 0; m < M; m++)
-                    ass_chain[m][k] = -1;
+                // curr_sol[k] = -1;
+                // for (int m = 0; m < M; m++)
+                //     ass_chain[m][k] = -1;
             }
         }
     }
