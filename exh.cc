@@ -1,4 +1,3 @@
-// Se pueden usar variables globales?
 // crono start and end
 // tiempo de ejecucion
 
@@ -8,57 +7,77 @@
 #include <vector>
 #include <time.h>
 
+
 using namespace std;
-using matrix = vector<vector<int>>;
 
 
-static int C, M, K, T;
+/* VARIABLE DEFINITION */
+static int C, M, K;  // Number of cars, number of upgrades, number of classes
+static int T;  // Total penalization.
+
+using Vec = vector<int>;
+using Class = vector<bool>;
+using Matrix = vector<Vec>;
 
 struct Upgrade {
-    int n;
-    int c;
+    int n;  // Maximum number of cars per window.
+    int c;  // Maximum number of cars for upgrade.
 };
 
-vector<int> solution;
-vector<Upgrade> upgrades;
-vector<int> car_in_class;  // Number of cars in each class.
-vector<vector<bool>> classes;  // Matrix with row of classes and each column represents an upgrade.
+struct Production {
+    vector<Upgrade> upgrades;  // Upgrades for the production.
+    Vec car_in_class;  // Number of cars in each class.
+    vector<Class> classes;  // Matrix with row of classes and each column represents an upgrade.
+};
+/* END VARIABLE DEFINITION */
 
 
-void read_input_file(ifstream& in)
+// Time to find an optimal solution.
+double duration(clock_t start)
 {
+    clock_t end = clock() - start;
+    return (((double)end)/CLOCKS_PER_SEC);
+}
+
+
+// Read the input file. Returns the attributes of the production from the input file.
+Production read_input_file(ifstream& in)
+{
+    Production P;
     if (in.is_open()) {
         in >> C >> M >> K;
-
-        upgrades = vector<Upgrade>(M);
-        car_in_class = vector<int>(K);
-        classes = vector<vector<bool>>(K, vector<bool>(M, false));
+        
+        P.upgrades = vector<Upgrade>(M);
+        P.car_in_class = Vec(K);
+        P.classes = vector<Class>(K, Class(M, false));
 
         for (int e = 0; e < M; e++)
-            in >> upgrades[e].c;
+            in >> P.upgrades[e].c;
         for (int e = 0; e < M; e++)
-            in >> upgrades[e].n;
+            in >> P.upgrades[e].n;
 
         for (int class_id = 0; class_id < K; ++class_id) {
             int aux;
-            in >> aux >> car_in_class[class_id];
+            in >> aux >> P.car_in_class[class_id];
             for (int e = 0; e < M; ++e) {
                 in >> aux;
-                classes[class_id][e] = aux;
+                P.classes[class_id][e] = aux;
             }
         }
-        in.close();  //close here or back at main?
+        in.close();
     } else {
         cout << "Couldn't read." << endl;
         exit(1);
     }
+    return (P);
 }
 
 
-void write_output_file(ofstream& out, double duration)
+// Write a optimal solution to the output file.
+void write_output_file(const Vec& solution, ofstream& out, double duration)
 {
     out.setf(ios::fixed);
-    out.precision(1);
+    out.precision(5);
 
     if (out.is_open()) {
         out << T << " " << duration << endl;
@@ -73,90 +92,106 @@ void write_output_file(ofstream& out, double duration)
 }
 
 
-int upgrade_pen(const vector<int>& seq, int n, int c, bool complete_seq)
+// Computes and returns the penalization of a class.
+int class_pen(const Vec& seq, int n, int c, int k)
 {
     int pen = 0;
-    int upgr = 0;
-    int size = seq.size();
-    
-    for(int j = 0; j < n; j++) {
-        upgr += seq[j];
-        pen += max(upgr-c, 0);
-    }
-    for(int j = n; j < size; j++) {
-        upgr+= seq[j] - seq[j-n];
-        pen += max(upgr-c, 0);
-    }
-    upgr = 0;
-    if (complete_seq) {
-        for(int j = size-1; j > size-n; j--) {
-            upgr += seq[j];
-            pen += max(upgr-c, 0);
+    int upg = 0;
+    if (k == C-1) {  // complete sequence
+        for (int i = 0; i < n; i++) {
+            upg += seq[k-i];
+            pen += max(upg - c, 0);
+        }
+    } else {  // uncomplete sequence
+        if (k >= n-1) {
+            for (int i = 0; i < n; i++)
+                upg += seq[k-i];
+            pen += max(upg - c, 0);
+        } else {
+             for (int i = 0; i <= k; i++)
+                upg += seq[i];
+            pen += max(upg - c, 0);           
         }
     }
     return (pen);
 }
 
 
-int sum_penalizations(const matrix& ass_chain, bool complete_seq)
+// Computes and returns the penalization for all the classses.
+int sum_penalization(const vector<Upgrade>& upgrades, const Matrix& ass_chain, int k)
 {
     int total_pen = 0;
     for (int m = 0; m < M; m++) {
         int n_e = upgrades[m].n;
         int c_e = upgrades[m].c;
-        total_pen += upgrade_pen(ass_chain[m], n_e, c_e, complete_seq);
+        total_pen += class_pen(ass_chain[m], n_e, c_e, k);
     }
-    return total_pen;    
+    return (total_pen);    
 }
 
 
-void exh_rec(matrix& ass_chain, vector<int>& curr_sol, int k, const string& output_file, clock_t start)
+// Updates assembly chain by adding a new car of class_id and its upgrades.
+void add_car_to_chain(Vec& car_in_class, const vector<Class>& classes, Matrix& ass_chain, Vec& curr_sol,
+                        int class_id, int k)
 {
-    int curr_pen = sum_penalizations(ass_chain, false);
+    car_in_class[class_id]--;
+    curr_sol[k] = class_id;  
+    for (int m = 0; m < M; m++)
+        ass_chain[m][k] = classes[class_id][m];
+}
+
+
+// Exhaustive search algorithm.
+void exh_rec(const vector<Upgrade>& upgrades, Vec& car_in_class, const vector<Class>& classes,
+            Matrix& ass_chain, Vec& curr_sol, Vec& solution, int k, int curr_pen,
+            const string& output_file, clock_t start)
+{
     if (curr_pen >= T)
         return;
+    
     if (k == C) {
-        int curr_pen = sum_penalizations(ass_chain, true);
-        if (curr_pen < T) {
-            T = curr_pen;
-            solution = curr_sol;
-
-            clock_t end = clock() - start;
-            double duration = ((double)end)/CLOCKS_PER_SEC;
-
-            ofstream output(output_file, ofstream::out);
-            write_output_file(output, duration);
-        }
-    } else {
+        T = curr_pen;
+        solution = curr_sol;
+        ofstream output(output_file, ofstream::out);
+        write_output_file(solution, output, duration(start));
+    } else { // if lower_bound // < T
         for (int class_id = 0; class_id < K; class_id++) {
-           if (car_in_class[class_id] > 0) {
-                car_in_class[class_id]--;
-                curr_sol[k] = class_id;  // Assign a car from class class_id to position k in the solution.
-                for (int m = 0; m < M; m++)  // agregas las mejoras de la clase
-                    ass_chain[m][k] = classes[class_id][m];
+            if (car_in_class[class_id] > 0) {
+                add_car_to_chain(car_in_class, classes, ass_chain, curr_sol, class_id, k);
+                // car_in_class[class_id]--;
+                // curr_sol[k] = class_id;  
+                // for (int m = 0; m < M; m++)
+                //     ass_chain[m][k] = classes[class_id][m];
 
-                exh_rec(ass_chain, curr_sol, k+1, output_file, start);
+                // if (k < C-1)
+                //     curr_pen += sum_penalization(upgrades, ass_chain, k);
+                // else
+                int tmp = curr_pen;
+                curr_pen += sum_penalization(upgrades, ass_chain, k);
 
+                exh_rec(upgrades, car_in_class, classes, ass_chain, curr_sol, solution, k+1, curr_pen, output_file, start);
+
+                // restore assembly chain.
+                curr_pen = tmp;
                 car_in_class[class_id]++;
-                curr_sol[k] = -1;
-                for (int m = 0; m < M; m++)  // quitar las mejoras de la clase
-                    ass_chain[m][k] = -1;
-           }
+                // curr_sol[k] = -1;
+                // for (int m = 0; m < M; m++)
+                //     ass_chain[m][k] = -1;
+            }
         }
     }
 }
 
 
-void exh(const string& output_file)
+// Finds an optimal order of cars, so that it minimizes the total penalization.
+void exh(Production& P, const string& output_file)
 {
     T = INT_MAX;
-    vector<int> curr_sol(C, -1);
-    solution = vector<int>(C, -1);
-    matrix ass_chain(M, vector<int>(C, -1));
+    Vec curr_sol(C, -1);
+    Vec solution(C, -1);
+    Matrix ass_chain(M, Vec(C, -1));  // assembly chain of cars and their upgrades.
 
-    clock_t start;
-    start = clock();
-    exh_rec(ass_chain, curr_sol, 0, output_file, start);
+    exh_rec(P.upgrades, P.car_in_class, P.classes, ass_chain, curr_sol, solution, 0, 0, output_file, clock());
 }
 
 
@@ -167,7 +202,9 @@ int main(int argc, const char *argv[])
         exit(1);
     }
     ifstream input(argv[1],ifstream::in);
-    read_input_file(input);
-    exh(argv[2]); // quitar el parametro de exh
+    
+    Production P = read_input_file(input);
+    exh(P, argv[2]);
+    
     return (0);
 }
