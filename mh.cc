@@ -119,7 +119,7 @@ int sum_penalization(const vector<Upgrade>& upgrades, const matrix& ass_chain, i
 }
 
 
-vector<vector<int>> permutation(vector<int> seq, int k)
+/*vector<vector<int>> permutation(vector<int> seq, int k)
 {
     int n = seq.size();
     vector<vector<int> perm;
@@ -141,7 +141,7 @@ vector<vector<int>> permutation(vector<int> seq, int k)
     }
     
     
-}
+}*/
 
 /******************************************************************************************************/
 // Computes density of a class, i.e. the number of 1's in the class.
@@ -223,8 +223,50 @@ void greedy(const vector<Upgrade>& upgrades, vector<int> car_in_class, const vec
 }
 /******************************************************************************************************/
 
+void fill_ass_chain_and_sum_pen(const vector<Upgrade>& upgrades, const vector<int>& solution, matrix& ass_chain,  const vector<vector<bool>>& classes,
+ int & pen){
 
-// Finds an optimal order of cars, so that it minimizes the total penalization.
+    int n = solution.size();
+    for(int k = 0; k < n; k++){
+        int class_id = solution[k];  
+        for (int m = 0; m < M; m++)
+            ass_chain[m][k] = classes[class_id][m];
+        pen += sum_penalization(upgrades, ass_chain, k);
+    }
+}
+
+void grasp(const vector<Upgrade>& upgrades, vector<int> car_in_class, const vector<vector<bool>>& classes,
+            vector<int>& solution, matrix ass_chain, const string& output_file, clock_t start, bool & no_better){
+        cout << "hola" << endl;
+        vector<int> curr_sol = solution;
+        int n = solution.size();
+        //ahora revisamos cada permutación de esta solución obtenida haciendo un swap entre dos elementos,
+        //y si encontramos una solución estrictamente mejor repetiremos el proceso con esta.
+
+        for(int i = 0; i < n; i++){
+            for(int j = 0; j > i and j < n; j++){ // j > i para no repetir cálculos
+                curr_sol[i] = solution[j];
+                curr_sol[j] = solution[i];
+                int new_pen = 0;
+                fill_ass_chain_and_sum_pen(upgrades, curr_sol, ass_chain, classes, new_pen);
+                if(new_pen <= T){
+                    cout << "mejoró o cambió" << endl;
+                    if(solution != curr_sol){
+                    solution = curr_sol;
+                    T = new_pen;
+                    clock_t end = clock() - start;
+                    double duration = ((double)end)/CLOCKS_PER_SEC;
+                    ofstream output(output_file, ofstream::out);
+                    write_output_file(solution, output, duration);
+                    return;
+                    }
+                }               
+            } 
+        }
+        no_better = true;
+}
+
+// Finds the local minima of a set of neighbours, starting from a solution generated with a greedy algorithm.
 void mh(Production& P, const string& output_file)
 {
     T = INT_MAX;
@@ -235,18 +277,15 @@ void mh(Production& P, const string& output_file)
     clock_t start;
     start = clock();
     greedy(P.upgrades, P.car_in_class, P.classes, solution, ass_chain, output_file, start);
-    while (start <= 60)
-    {
-        // vecinos: p numero de permiutaciones
+        // vecinos: de momento todas las permutaciones haciendo un swap entre dos elementos de la mejor solución actual.
 
         // buscar numero de iteraciones optima para vaciar pila
         // guardar T y vector de solution
-        // si la T acutal y T son iguales mirar en el tabu por el vector comprarndo con el resto 
-        tabuSearch();
-    }
+        // si la T acutal y T son iguales mirar en el tabu por el vector comprarndo con el resto (esto de momento no)
+    bool no_better = false;
+    while(clock() <= 60 and not no_better)
+        grasp(P.upgrades, P.car_in_class, P.classes, solution, ass_chain, output_file, start, no_better);
     
-
-    exh_rec(P.upgrades, P.car_in_class, P.classes, ass_chain, curr_sol, solution, 0, 0, output_file, start);
 }
 
 
@@ -259,7 +298,7 @@ int main(int argc, const char *argv[])
     ifstream input(argv[1],ifstream::in);
     
     Production P = read_input_file(input);
-    exh(P, argv[2]);
+    mh(P, argv[2]);
     
     return (0);
 }
