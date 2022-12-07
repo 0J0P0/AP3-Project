@@ -16,7 +16,7 @@ static int T;  // Total penalization.
 using Vec = vector<int>;
 using Class = vector<bool>;
 using Matrix = vector<Vec>;
-using TabuList = queue<vector<int>>;
+using TabuList = queue<Vec>;
 
 struct Upgrade {
     int n;  // Maximum number of cars per window.
@@ -142,15 +142,17 @@ bool is_in_list(const vector<int>& sol, TabuList tabu)
 
 
 // 
-void fill_ass_chain_and_sum_pen(const vector<Upgrade>& upgrades, const Vec& solution, Matrix& ass_chain,
-                                const vector<Class>& classes, int & pen)
+int fill_ass_chain_and_sum_pen(const vector<Upgrade>& upgrades, const Vec& solution, Matrix& ass_chain,
+                                const vector<Class>& classes)
 {
+    int pen = 0;
     for(int k = 0; k < C; k++) {
         int class_id = solution[k];
         for (int m = 0; m < M; m++)
             ass_chain[m][k] = classes[class_id][m];
         pen += sum_penalization(upgrades, ass_chain, k);
     }
+    return pen;
 }
 
 
@@ -166,22 +168,24 @@ bool grasp(const vector<Upgrade>& upgrades, Vec car_in_class, const vector<Class
             int swap_var = curr_sol[i];
             curr_sol[i] = curr_sol[j];
             curr_sol[j] = swap_var;
-            int new_pen = 0;
-            fill_ass_chain_and_sum_pen(upgrades, curr_sol, ass_chain, classes, new_pen);
-            if (new_pen < T) {
-                cout << "mejoró " << T << endl;
+            int new_pen = fill_ass_chain_and_sum_pen(upgrades, curr_sol, ass_chain, classes);
+            if (new_pen <= T) {
+                cout << "mejor o igual a " << T << endl;
 
                 bool found = is_in_list(curr_sol, tabu);
                 if (not found) {
+                    cout << "mejor " << T << endl;
+                    int aux = T;
                     T = new_pen;
-                    solution = curr_sol;
+                    solution = curr_sol;  // en verdad no haria falta igualar, porque curr_sol es solution
                     ofstream output(output_file, ofstream::out);
                     write_output_file(solution, output, duration(start));
 
                     if ((int)tabu.size() == C)
-                            tabu.pop();
+                        tabu.pop();
                     tabu.push(curr_sol);
-                    return true;
+                    if (new_pen < aux)
+                        return true;
                 }
             }
             curr_sol[j] = curr_sol[i];
@@ -302,6 +306,7 @@ void mh(Production& P, const string& output_file)
     // phase 2: solution improvement (tabu search)
     TabuList tabu;
     Vec curr_sol = solution;
+    // tabu.push(curr_sol);  //?????????????
     bool improved = true;
         // vecinos: de momento todas las permutaciones haciendo un swap entre dos elementos de la mejor solución actual.
     while(improved)
