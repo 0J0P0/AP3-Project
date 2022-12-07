@@ -29,6 +29,14 @@ struct Production {
 /* END VARIABLE DEFINITION */
 
 
+// Time to find an optimal solution.
+double duration(clock_t start)
+{
+    clock_t end = clock() - start;
+    return (((double)end)/CLOCKS_PER_SEC);
+}
+
+
 // Read the input file. Returns the attributes of the production from the input file.
 Production read_input_file(ifstream& in)
 {
@@ -66,7 +74,7 @@ Production read_input_file(ifstream& in)
 void write_output_file(const Vec& solution, ofstream& out, double duration)
 {
     out.setf(ios::fixed);
-    out.precision(1);
+    out.precision(5);
 
     if (out.is_open()) {
         out << T << " " << duration << endl;
@@ -78,17 +86,6 @@ void write_output_file(const Vec& solution, ofstream& out, double duration)
         cout << "Couldn't write." << endl;
         exit(1);
     }
-}
-
-
-// Computes density of a class, i.e. the number of 1's in the class.
-int density_class(const vector<Class>& classes, int class_id)
-{
-    int density = 0;
-    for (int i = 0; i < (int)classes[class_id].size(); i++)
-        if (classes[class_id][i])
-            density++;
-    return (density);
 }
 
 
@@ -126,30 +123,40 @@ int sum_penalization(const vector<Upgrade>& upgrades, const Matrix& ass_chain, i
         int c_e = upgrades[m].c;
         total_pen += class_pen(ass_chain[m], n_e, c_e, k);
     }
-    return total_pen;    
+    return (total_pen);    
 }
 
 
-Vec minimum_penalization(const vector<Upgrade>& upgrades, const Matrix& ass_chain) 
+// Updates assembly chain by adding a new car of class_id and its upgrades.
+void add_car_to_chain(Vec& car_in_class, const vector<Class>& classes, Matrix& ass_chain, Vec& curr_sol,
+                        int class_id, int k)
 {
-    int pen = 0;
-    Vec penalization(C);
-    for (int c = 0; c < C; c++)
-    {
-        pen += sum_penalization(upgrades, ass_chain, c);
-        penalization[c] = pen;
-    }
-    return (penalization);
+    car_in_class[class_id]--;
+    curr_sol[k] = class_id;  
+    for (int m = 0; m < M; m++)
+        ass_chain[m][k] = classes[class_id][m];
 }
 
 
-// 
-int min_penalization_class(const vector<Upgrade>& upgrades, const Vec& car_in_class,
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Computes density of a class, i.e. the number of 1's in the class.
+int density_class(const vector<Class>& classes, int class_id)
+{
+    int density = 0;
+    for (int i = 0; i < (int)classes[class_id].size(); i++)
+        if (classes[class_id][i])
+            density++;
+    return (density);
+}
+
+
+// parametros opcionales
+int meh(const vector<Upgrade>& upgrades, const Vec& car_in_class,
                             const vector<Class>& classes, const Class& vis,
-                            Matrix& ass_chain, const Vec& penalization, int k)
+                            Matrix& ass_chain, int k)
 {
     int best_class = -1;
-    int new_pen = T;
+    int new_pen = INT_MAX;
     for (int class_id = 0; class_id < K; class_id++) {
         if (not vis[class_id] and car_in_class[class_id] > 0 /*and solution[k] != class_id*/) {
             for (int m = 0; m < M; m++)
@@ -176,149 +183,127 @@ int min_penalization_class(const vector<Upgrade>& upgrades, const Vec& car_in_cl
     }
     return (best_class);
 }
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 // Exhaustive search algorithm.
 void exh_rec(const vector<Upgrade>& upgrades, Vec& car_in_class, const vector<Class>& classes,
-            Matrix& ass_chain, Vec& penalization, Vec& curr_sol, Vec& solution, int k, int curr_pen,
+            Matrix& ass_chain, Vec& curr_sol, Vec& solution, int k, int curr_pen,
             const string& output_file, clock_t start)
 {
-    if (curr_pen >= T /*or (clock() - start)/(double)CLOCKS_PER_SEC > 60*/) // solucion cutre para que no dure mucho
+    if (curr_pen >= T)
         return;
-
+    
     if (k == C) {
-        // cuando se escribe la solucion tarda una eternidad mas
-        // cout << "nueva sol: ";
-        // if (curr_pen < T) {  // este no esta de mas si esta el if de arriba?
-            // cout << "escribe sol ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << endl;
         T = curr_pen;
         solution = curr_sol;
-        // penalization = minimum_penalization(upgrades, ass_chain);
-        clock_t end = clock() - start;
-        double duration = ((double)end)/CLOCKS_PER_SEC;
         ofstream output(output_file, ofstream::out);
-        write_output_file(solution, output, duration);
-        // }
-    } else {
-    // una LB no puede ser que la pena del curr sol tiene que ser mayor o igual a la minima pena posible
+        write_output_file(solution, output, duration(start));
+    } else { // if lower_bound // < T
         Class vis(K, false);
         for (int i = 0; i < K; i++) {
-            // curr_pen menos que pen de la solution
-            int class_id = min_penalization_class(upgrades, car_in_class, classes, vis, ass_chain, penalization, k);
+            int class_id = meh(upgrades, car_in_class, classes, vis, ass_chain, k);    
             if (class_id == -1)
                 return;
-        
+            
             vis[class_id] = true;
-            // update assembly chain with a new car of class_id and its upgrades.
-            // insert_new_car(classes, car_in_class, ass_chain, solution, class_id, k);
+            add_car_to_chain(car_in_class, classes, ass_chain, curr_sol, class_id, k);
 
-            car_in_class[class_id]--;
-            curr_sol[k] = class_id;  
-            for (int m = 0; m < M; m++)
-                ass_chain[m][k] = classes[class_id][m];
+            int tmp = curr_pen;
+            curr_pen += sum_penalization(upgrades, ass_chain, k);
 
-            // update penalization.
-            int tmp = curr_pen;  // ?
-            if (k < C-1)  //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                curr_pen += sum_penalization(upgrades, ass_chain, k);
-            else  // if (k == C-1)
-                curr_pen += sum_penalization(upgrades, ass_chain, k);
+            exh_rec(upgrades, car_in_class, classes, ass_chain, curr_sol, solution, k+1, curr_pen, output_file, start);
 
-
-            // cout << "Rec level: " << k << " iteration: " << i << " curr_pen " << curr_pen << " T " << T << endl;
-            //  cout << "Vis";
-            // for (auto e : vis)
-            //     cout << " " << e;
-            // cout << endl;
-            // cout << "Current solution";
-            // for (auto e : curr_sol)
-            //     cout << " " << e;
-            // cout << " |||| Solution";
-            // for (auto e : solution)
-            //     cout << " " << e;
-            // cout << endl << "------------------------------------------------------------------------" << endl;
-
-            exh_rec(upgrades, car_in_class, classes, ass_chain, penalization, curr_sol, solution, k+1, curr_pen, output_file, start);
-
-            // restore assembly chain.
-            curr_pen = tmp;
             car_in_class[class_id]++;
-            curr_sol[k] = -1;
-            // for (int m = 0; m < M; m++)
-            //     ass_chain[m][k] = -1;
+            curr_pen = tmp;
         }
     }
 }
 
 
-/******************************************************************************************************/
-// Searchs the most requested class, in terms of cars per class.
-int find_max_class(Vec car_in_class){
+/***********************************************************************************************************/
+// Search the most requested class, in terms of cars per class.
+int most_requested_class(Vec car_in_class){
     
-    int max_class = 0;
-    int argmax_class = 0;
+    int nc = 0;
+    int best_class = -1;
     for (int class_id = 0; class_id < K; class_id++) {
-            if(car_in_class[class_id] > max_class) {
-                max_class = car_in_class[class_id];
-                argmax_class = class_id;
+            if (car_in_class[class_id] > nc) {
+                nc = car_in_class[class_id];
+                best_class = class_id;
             }
         }
-    return (argmax_class);
+    return (best_class);
+}
+
+
+// // Computes density of a class, i.e. the number of 1's in the class.
+// int density_class(const vector<Class>& classes, int class_id)
+// {
+//     int density = 0;
+//     for (int i = 0; i < (int)classes[class_id].size(); i++)
+//         if (classes[class_id][i])
+//             density++;
+//     return (density);
+// }
+
+
+pair<int, int> min_penalization_class(const vector<Upgrade>& upgrades, const Vec& car_in_class,
+                                        const vector<Class>& classes, Matrix ass_chain, int k)
+{
+    int tmp = INT_MAX; // T
+    int best_class = -1;
+
+    for (int class_id = 0; class_id < K; class_id++) {
+        if (car_in_class[class_id] > 0) {
+            for (int m = 0; m < M; m++)
+                ass_chain[m][k] = classes[class_id][m];
+
+            int class_pen = sum_penalization(upgrades, ass_chain, k);
+
+            if (class_pen < tmp) {  // criterio de penalizacion añadiendo class_id
+                tmp = class_pen;
+                best_class = class_id;
+            } else if (class_pen == tmp) { // criterio de numero de coches
+                if (car_in_class[best_class] < car_in_class[class_id]) {
+                    best_class = class_id;
+                    tmp = class_pen;
+                } else if (car_in_class[best_class] == car_in_class[class_id]) {
+                        if (density_class(classes, best_class) < density_class(classes, class_id)) {
+                            best_class = class_id;
+                            tmp = class_pen;
+                        }
+                }
+            }
+        }
+    }
+    return {best_class, tmp};
 }
 
 
 // Finds a semi-optimal solution as fast as possible.
 void greedy(const vector<Upgrade>& upgrades, Vec car_in_class, const vector<Class>& classes,
-            Vec& solution, Matrix& ass_chain, const string& output_file, clock_t start)
+            Matrix ass_chain, Vec& solution, const string& output_file, clock_t start)
 {
-    int max_class = find_max_class(car_in_class); // we look for the most requested class, since the first upgrade won't have a penalization
-    car_in_class[max_class]--;
-    solution[0] = max_class;
-    for (int m = 0; m < M; m++)
-        ass_chain[m][0] = classes[max_class][m];
-    int k = 1;
     int curr_pen = 0;
-    while(k < C) {
-        int min_add = T;
-        int min_class = 0;
-        for (int class_id = 0; class_id < K; class_id++){
-            if(car_in_class[class_id] > 0) {
-                for (int m = 0; m < M; m++)
-                    ass_chain[m][k] = classes[class_id][m];
-                int class_pen = sum_penalization(upgrades, ass_chain, k);
-                if (class_pen < min_add) {
-                    min_add = class_pen;
-                    min_class = class_id;
-                } else if (class_pen == min_add) { // criterio de numero de coches
-                    if (car_in_class[min_class] < car_in_class[class_id]) {
-                        min_class = class_id;
-                        min_add = class_pen;
-                    } else if (car_in_class[min_class] == car_in_class[class_id]) {
-                          int min_dens = density_class(classes, min_class);
-                          int class_dens = density_class(classes, class_id);
-                          if (min_dens < class_dens) {
-                              min_class = class_id;
-                              min_add = class_pen;
-                          }
-                    }
-                }
-            }
+    // base case: choose the class with the most number of cars since there is no penalization.
+    int class_id = most_requested_class(car_in_class);
+    add_car_to_chain(car_in_class, classes, ass_chain, solution, class_id, 0);
+
+    int k = 1;
+    while (k < C) {
+        pair<int, int> min_class = min_penalization_class(upgrades, car_in_class, classes, ass_chain, k);
+        if (min_class.first != -1) {
+            add_car_to_chain(car_in_class, classes, ass_chain, solution, min_class.first, k);
+            curr_pen += min_class.second;
         }
-        for (int m = 0; m < M; m++) ass_chain[m][k] = classes[min_class][m];
-        curr_pen += min_add;
-        solution[k] = min_class;
-        car_in_class[min_class]--;
         k++;
     }
-    
     T = curr_pen;
-    clock_t end = clock() - start;
-    double duration = ((double)end)/CLOCKS_PER_SEC;
-
     ofstream output(output_file, ofstream::out);
-    write_output_file(solution, output, duration);
+    write_output_file(solution, output, duration(start));
 }
-/******************************************************************************************************/
+/***********************************************************************************************************/
 
 
 // Finds an optimal order of cars, so that it minimizes the total penalization.
@@ -329,11 +314,8 @@ void exh(Production& P, const string& output_file)
     Vec solution(C, -1);
     Matrix ass_chain(M, Vec(C, -1));  // assembly chain of cars and their upgrades.
 
-    clock_t start;
-    start = clock();
-    greedy(P.upgrades, P.car_in_class, P.classes, solution, ass_chain, output_file, start);
-    Vec penalization = minimum_penalization(P.upgrades, ass_chain);
-    exh_rec(P.upgrades, P.car_in_class, P.classes, ass_chain, penalization, curr_sol, solution, 0, 0, output_file, start);
+    greedy(P.upgrades, P.car_in_class, P.classes, ass_chain, solution, output_file, clock());
+    exh_rec(P.upgrades, P.car_in_class, P.classes, ass_chain, curr_sol, solution, 0, 0, output_file, clock());
 }
 
 

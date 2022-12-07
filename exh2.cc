@@ -262,7 +262,7 @@ void exh(Production& P, const string& output_file)
     Vec solution(C, -1);
     Matrix ass_chain(M, Vec(C, -1));  // assembly chain of cars and their upgrades.
 
-    // greedy(P.upgrades, P.car_in_class, P.classes, ass_chain, solution, output_file, clock());
+    greedy(P.upgrades, P.car_in_class, P.classes, ass_chain, solution, output_file, clock());
     exh_rec(P.upgrades, P.car_in_class, P.classes, ass_chain, curr_sol, solution, 0, 0, output_file, clock());
 }
 

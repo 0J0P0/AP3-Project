@@ -1,6 +1,3 @@
-// crono start and end
-// tiempo de ejecucion
-
 #include <iostream>
 #include <fstream>
 #include <climits>
