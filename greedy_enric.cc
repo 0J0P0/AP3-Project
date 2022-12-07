@@ -8,10 +8,14 @@
 
 
 using namespace std;
-using matrix = vector<vector<int>>;
 
 /* VARIABLE DEFINITION */
-static int C, M, K, T;
+static int C, M, K;  // Number of cars, number of upgrades, number of classes
+static int T;  // Total penalization.
+
+using Vec = vector<int>;
+using Class = vector<bool>;
+using Matrix = vector<Vec>;
 
 struct Upgrade {
     int n;  // maximum number of cars per window.
@@ -20,8 +24,8 @@ struct Upgrade {
 
 struct Production {
     vector<Upgrade> upgrades;  // Upgrades for the production.
-    vector<int> car_in_class;  // Number of cars in each class.
-    vector<vector<bool>> classes;  // Matrix with row of classes and each column represents an upgrade.
+    Vec car_in_class;  // Number of cars in each class.
+    vector<Class> classes;  // Matrix with row of classes and each column represents an upgrade.
 };
 /* END VARIABLE DEFINITION */
 
@@ -34,8 +38,8 @@ Production read_input_file(ifstream& in)
         in >> C >> M >> K;
         
         P.upgrades = vector<Upgrade>(M);
-        P.car_in_class = vector<int>(K);
-        P.classes = vector<vector<bool>>(K, vector<bool>(M, false));
+        P.car_in_class = Vec(K);
+        P.classes = vector<Class>(K, Class(M, false));
 
         for (int e = 0; e < M; e++)
             in >> P.upgrades[e].c;
@@ -60,7 +64,7 @@ Production read_input_file(ifstream& in)
 
 
 // Write a optimal solution to the output file.
-void write_output_file(const vector<int>& solution, ofstream& out, double duration)
+void write_output_file(const Vec& solution, ofstream& out, double duration)
 {
     out.setf(ios::fixed);
     out.precision(1);
@@ -79,7 +83,7 @@ void write_output_file(const vector<int>& solution, ofstream& out, double durati
 
 
 // Computes density of a class, i.e. the number of 1's in the class.
-int density_class(const vector<vector<bool>>& classes, int class_id)
+int density_class(const vector<Class>& classes, int class_id)
 {
     int density = 0;
     for (int i = 0; i < (int)classes[class_id].size(); i++)
@@ -90,7 +94,7 @@ int density_class(const vector<vector<bool>>& classes, int class_id)
 
 
 // Computes and returns the penalization of a class.
-int class_pen(const vector<int>& seq, int n, int c, int k)
+int class_pen(const Vec& seq, int n, int c, int k)
 {
     int pen = 0;
     int upg = 0;
@@ -115,7 +119,7 @@ int class_pen(const vector<int>& seq, int n, int c, int k)
 
 
 // Computes and returns the penalization for all the classses.
-int sum_penalization(const vector<Upgrade>& upgrades, const matrix& ass_chain, int k)
+int sum_penalization(const vector<Upgrade>& upgrades, const Matrix& ass_chain, int k)
 {
     int total_pen = 0;
     for (int m = 0; m < M; m++) {
@@ -128,7 +132,7 @@ int sum_penalization(const vector<Upgrade>& upgrades, const matrix& ass_chain, i
 
 
 // Search the most requested class, in terms of cars per class.
-int find_max_class(vector<int> car_in_class){
+int find_max_class(Vec car_in_class){
     
     int max_class = 0;
     int argmax_class = 0;
@@ -146,8 +150,8 @@ int find_max_class(vector<int> car_in_class){
 void greedy(Production& P, const string& output_file)
 {
     T = INT_MAX;
-    vector<int> solution(C, -1);
-    matrix ass_chain(M, vector<int>(C, -1));  // assembly chain of cars and their upgrades.
+    Vec solution(C, -1);
+    Matrix ass_chain(M, Vec(C, -1));  // assembly chain of cars and their upgrades.
 
     clock_t start;
     start = clock();
