@@ -236,35 +236,41 @@ void fill_ass_chain_and_sum_pen(const vector<Upgrade>& upgrades, const vector<in
 }
 
 void grasp(const vector<Upgrade>& upgrades, vector<int> car_in_class, const vector<vector<bool>>& classes,
-            vector<int>& solution, matrix ass_chain, const string& output_file, clock_t start, bool & no_better){
-        cout << "hola" << endl;
-        vector<int> curr_sol = solution;
+            vector<int>& solution, vector<int>& curr_sol, matrix ass_chain, const string& output_file, clock_t start, bool & no_better, int swaps){
         int n = solution.size();
         //ahora revisamos cada permutación de esta solución obtenida haciendo un swap entre dos elementos,
         //y si encontramos una solución estrictamente mejor repetiremos el proceso con esta.
 
         for(int i = 0; i < n; i++){
-            for(int j = 0; j > i and j < n; j++){ // j > i para no repetir cálculos
-                curr_sol[i] = solution[j];
-                curr_sol[j] = solution[i];
+            for(int j = 0;j < n; j++){ // j > i para no repetir cálculos
+                int swap_var = curr_sol[i];
+                curr_sol[i] = curr_sol[j];
+                curr_sol[j] = swap_var;
                 int new_pen = 0;
                 fill_ass_chain_and_sum_pen(upgrades, curr_sol, ass_chain, classes, new_pen);
-                if(new_pen <= T){
-                    cout << "mejoró o cambió" << endl;
-                    if(solution != curr_sol){
+                if(new_pen < T){
+                    cout << "mejoró" << endl;
                     solution = curr_sol;
                     T = new_pen;
                     clock_t end = clock() - start;
                     double duration = ((double)end)/CLOCKS_PER_SEC;
                     ofstream output(output_file, ofstream::out);
                     write_output_file(solution, output, duration);
+                    no_better = false;
                     return;
-                    }
+                }
+                /*else if(swaps == 3) return; // los vecinos son aquellas secuencias que se obtienen haciendo como mucho tres swaps sobre la solución actual.
+                else{
+                    swaps++;
+                    grasp(upgrades, car_in_class, classes, solution, curr_sol, ass_chain, output_file, start, no_better, swaps);
+                }*/
+                curr_sol[j] = curr_sol[i];
+                curr_sol[i] = swap_var;
                 }               
-            } 
-        }
-        no_better = true;
-}
+            }
+            no_better = true; 
+    }
+       
 
 // Finds the local minima of a set of neighbours, starting from a solution generated with a greedy algorithm.
 void mh(Production& P, const string& output_file)
@@ -283,8 +289,10 @@ void mh(Production& P, const string& output_file)
         // guardar T y vector de solution
         // si la T acutal y T son iguales mirar en el tabu por el vector comprarndo con el resto (esto de momento no)
     bool no_better = false;
-    while(clock() <= 60 and not no_better)
-        grasp(P.upgrades, P.car_in_class, P.classes, solution, ass_chain, output_file, start, no_better);
+    while(not no_better){
+        curr_sol = solution;
+        grasp(P.upgrades, P.car_in_class, P.classes, solution, curr_sol, ass_chain, output_file, start, no_better, 0);
+    }
     
 }
 
