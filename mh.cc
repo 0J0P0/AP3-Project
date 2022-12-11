@@ -20,7 +20,7 @@ using TabuList = queue<vector<int>>;
 
 struct Upgrade {
     int n;  // Maximum number of cars per window.
-    int c;  // Maximum number of cars for upgrade.
+    int c;  // Maximum number of cars that can be upgraded without penalization in every n(or lower)-sized window .
 };
 
 struct Production {
@@ -28,10 +28,10 @@ struct Production {
     Vec car_in_class;  // Number of cars in each class.
     vector<Class> classes;  // Matrix with row of classes and each column represents an upgrade.
 };
-/* END VARIABLE DEFINITION */
+/* END OF VARIABLE DEFINITION */
 
 
-// Time to find an optimal solution.
+// Returns the needed time to find a solution.
 double duration(clock_t start)
 {
     clock_t end = clock() - start;
@@ -39,7 +39,7 @@ double duration(clock_t start)
 }
 
 
-// Read the input file. Returns the attributes of the production from the input file.
+// Reads the input file and returns the production attributes from that file.
 Production read_input_file(ifstream& in)
 {
     Production P;
@@ -72,7 +72,7 @@ Production read_input_file(ifstream& in)
 }
 
 
-// Write a optimal solution to the output file.
+// Writes a solution and the time needed to find it in the output file.
 void write_output_file(const Vec& solution, ofstream& out, double duration)
 {
     out.setf(ios::fixed);
@@ -91,8 +91,9 @@ void write_output_file(const Vec& solution, ofstream& out, double duration)
 }
 
 
-// Computes and returns the penalization of a class.
-int class_pen(const Vec& seq, int n, int c, int k)
+// Computes and returns the penalization of adding the k'th element to the solution for an upgrade station (with atributes n and c).
+// The sequence analized to compute this penalization is the row of the Assembly Chain corresponding to that upgrade.
+int upgrade_pen(const Vec& seq, int n, int c, int k)
 {
     int pen = 0;
     int upg = 0;
@@ -116,14 +117,14 @@ int class_pen(const Vec& seq, int n, int c, int k)
 }
 
 
-// Computes and returns the penalization for all the classses.
+// Computes and returns the total penalization of adding the k'th element to the current partial solution.
 int sum_penalization(const vector<Upgrade>& upgrades, const Matrix& ass_chain, int k)
 {
     int total_pen = 0;
     for (int m = 0; m < M; m++) {
         int n_e = upgrades[m].n;
         int c_e = upgrades[m].c;
-        total_pen += class_pen(ass_chain[m], n_e, c_e, k);
+        total_pen += upgrade_pen(ass_chain[m], n_e, c_e, k);
     }
     return total_pen;    
 }
@@ -185,7 +186,7 @@ bool grasp(const vector<Upgrade>& upgrades, Vec car_in_class, const vector<Class
 
 
 /***********************************************************************************************************/
-// Computes density of a class, i.e. the number of 1's in the class.
+// Computes the density of a class, i.e. the number of 1's (upgrades needed) in that class.
 int density_class(const vector<Class>& classes, int class_id)
 {
     int density = 0;
@@ -289,9 +290,9 @@ void mh(Production& P, const string& output_file)
     Vec solution(C, -1);
     Matrix ass_chain(M, Vec(C, -1));  // assembly chain of cars and their upgrades.
 
-    // phase 1: solution construction
+    // Phase 1: solution construction
     greedy(P.upgrades, P.car_in_class, P.classes, ass_chain, solution, output_file, clock());
-    // phase 2: solution improvement (tabu search)
+    // Phase 2: solution improvement (tabu search)
     // TabuList tabu;
     Vec curr_sol = solution;
     bool improved = true;
