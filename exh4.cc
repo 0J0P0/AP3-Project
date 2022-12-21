@@ -131,11 +131,59 @@ int sum_penalization(const vector<Upgrade>& upgrades, const Matrix& ass_chain, i
 void add_car_to_chain(Vec& car_in_class, const vector<Class>& classes, Matrix& ass_chain, Vec& curr_sol,
                         int class_id, int k)
 {
-    car_in_class[class_id]--;
+    --car_in_class[class_id];
     curr_sol[k] = class_id;  
     for (int m = 0; m < M; m++)
         ass_chain[m][k] = classes[class_id][m];
 }
+
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Computes density of a class, i.e. the number of 1's in the class.
+int density_class(const vector<Class>& classes, int class_id)
+{
+    int density = 0;
+    for (int i = 0; i < (int)classes[class_id].size(); i++)
+        if (classes[class_id][i])
+            density++;
+    return (density);
+}
+
+
+// parametros opcionales
+int meh(const vector<Upgrade>& upgrades, const Vec& car_in_class,
+                            const vector<Class>& classes, const Class& vis,
+                            Matrix& ass_chain, int k)
+{
+    int best_class = -1;
+    int new_pen = INT_MAX;
+    for (int class_id = 0; class_id < K; class_id++) {
+        if (not vis[class_id] and car_in_class[class_id] > 0 /*and solution[k] != class_id*/) {
+            for (int m = 0; m < M; m++)
+                ass_chain[m][k] = classes[class_id][m];  // se agrega pero no se deberia quitar
+
+            int class_pen = sum_penalization(upgrades, ass_chain, k);  // ??????????????????????????????????????????????
+            if (class_pen < new_pen) {  // criterio de penalizacion añadiendo class_id
+                new_pen = class_pen;
+                best_class = class_id;
+            } else if (class_pen == new_pen) { // criterio de numero de coches
+                if (car_in_class[best_class] < car_in_class[class_id]) {
+                    best_class = class_id;
+                    new_pen = class_pen;
+                } else if (car_in_class[best_class] == car_in_class[class_id]) {
+                        int min_dens = density_class(classes, best_class);
+                        int class_dens = density_class(classes, class_id);
+                        if (min_dens < class_dens) {
+                            best_class = class_id;
+                            new_pen = class_pen;
+                        }
+                }
+            }
+        }
+    }
+    return (best_class);
+}
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 // Exhaustive search algorithm.
@@ -152,18 +200,18 @@ void exh_rec(const vector<Upgrade>& upgrades, Vec& car_in_class, const vector<Cl
         ofstream output(output_file, ofstream::out);
         write_output_file(solution, output, duration(start));
     } else { // if lower_bound // < T
-        for (int class_id = 0; class_id < K; class_id++) {
-            if (car_in_class[class_id] > 0) {
-                add_car_to_chain(car_in_class, classes, ass_chain, curr_sol, class_id, k);
+        Class vis(K, false);
+        int class_id = meh(upgrades, car_in_class, classes, vis, ass_chain, k);    
+        while (class_id != -1) {
+            add_car_to_chain(car_in_class, classes, ass_chain, curr_sol, class_id, k);
+            
+            int sp = sum_penalization(upgrades, ass_chain, k);
+            exh_rec(upgrades, car_in_class, classes, ass_chain, curr_sol, solution, k+1, curr_pen+sp, output_file, 
+                    start);
 
-                int tmp = curr_pen;
-                curr_pen += sum_penalization(upgrades, ass_chain, k);
-
-                exh_rec(upgrades, car_in_class, classes, ass_chain, curr_sol, solution, k+1, curr_pen, output_file, start);
-
-                car_in_class[class_id]++;
-                curr_pen = tmp;
-            }
+            vis[class_id] = true;
+            ++car_in_class[class_id];
+            class_id = meh(upgrades, car_in_class, classes, vis, ass_chain, k);
         }
     }
 }
@@ -185,15 +233,15 @@ int most_requested_class(Vec car_in_class){
 }
 
 
-// Computes density of a class, i.e. the number of 1's in the class.
-int density_class(const vector<Class>& classes, int class_id)
-{
-    int density = 0;
-    for (int i = 0; i < (int)classes[class_id].size(); i++)
-        if (classes[class_id][i])
-            density++;
-    return (density);
-}
+// // Computes density of a class, i.e. the number of 1's in the class.
+// int density_class(const vector<Class>& classes, int class_id)
+// {
+//     int density = 0;
+//     for (int i = 0; i < (int)classes[class_id].size(); i++)
+//         if (classes[class_id][i])
+//             density++;
+//     return (density);
+// }
 
 
 pair<int, int> min_penalization_class(const vector<Upgrade>& upgrades, const Vec& car_in_class,
