@@ -129,73 +129,6 @@ int sum_penalization(const vector<Upgrade>& upgrades, const Matrix& ass_chain, i
 }
 
 
-//
-bool is_in_list(const vector<int>& sol, TabuList tabu)
-{
-    while (not tabu.empty()) {
-        if (sol == tabu.front())
-            return true;
-        tabu.pop();
-    }
-    return false;
-}
-
-
-// 
-int fill_ass_chain_and_sum_pen(const vector<Upgrade>& upgrades, const Vec& solution, Matrix& ass_chain,
-                                const vector<Class>& classes)
-{
-    int pen = 0;
-    for(int k = 0; k < C; k++) {
-        int class_id = solution[k];
-        for (int m = 0; m < M; m++)
-            ass_chain[m][k] = classes[class_id][m];
-        pen += sum_penalization(upgrades, ass_chain, k);
-    }
-    return pen;
-}
-
-
-//
-bool grasp(const vector<Upgrade>& upgrades, Vec car_in_class, const vector<Class>& classes,
-            Vec& solution, Vec& curr_sol, Matrix ass_chain, TabuList tabu,
-            const string& output_file, clock_t start)
-{
-    //ahora revisamos cada permutación de esta solución obtenida haciendo un swap entre dos elementos,
-    //y si encontramos una solución estrictamente mejor repetiremos el proceso con esta.
-    for (int i = 0; i < C; i++) {
-        for (int j = 0; j < C; j++) { // j > i para no repetir cálculos
-            int swap_var = curr_sol[i];
-            curr_sol[i] = curr_sol[j];
-            curr_sol[j] = swap_var;
-            int new_pen = fill_ass_chain_and_sum_pen(upgrades, curr_sol, ass_chain, classes);
-            if (new_pen <= T) {
-                cout << "mejor o igual a " << T << endl;
-
-                bool found = is_in_list(curr_sol, tabu);
-                if (not found) {
-                    cout << "mejor " << T << endl;
-                    int aux = T;
-                    T = new_pen;
-                    solution = curr_sol;  // en verdad no haria falta igualar, porque curr_sol es solution
-                    ofstream output(output_file, ofstream::out);
-                    write_output_file(solution, output, duration(start));
-
-                    if ((int)tabu.size() == C)
-                        tabu.pop();
-                    tabu.push(curr_sol);
-                    if (new_pen < aux)
-                        return true;
-                }
-            }
-            curr_sol[j] = curr_sol[i];
-            curr_sol[i] = swap_var;
-        }               
-    }
-    return false; 
-}
-
-
 /***********************************************************************************************************/
 // Computes density of a class, i.e. the number of 1's in the class.
 int density_class(const vector<Class>& classes, int class_id)
@@ -293,26 +226,30 @@ void greedy(const vector<Upgrade>& upgrades, Vec car_in_class, const vector<Clas
 /***********************************************************************************************************/
 
 
-// Finds the local minima of a set of neighbours, starting from a solution generated with a greedy algorithm.
-void mh(Production& P, const string& output_file)
+// Finds a local minimum by swapping two cars. Using a grasp-like approach.
+void grasp(Production& P, const string& output_file)
 {
     T = INT_MAX;
-    // Vec curr_sol(C, -1);
     Vec solution(C, -1);
     Matrix ass_chain(M, Vec(C, -1));  // assembly chain of cars and their upgrades.
 
-    // phase 1: solution construction
+    // Phase 1: Solution construction. Greedy approach.
     greedy(P.upgrades, P.car_in_class, P.classes, ass_chain, solution, output_file, clock());
-    // phase 2: solution improvement (tabu search)
-    TabuList tabu;
-    Vec curr_sol = solution;
-    // tabu.push(curr_sol);  //?????????????
+    // Phase 2: Solution improvement. Tabu search.
+    TabuList tabu_list;
     bool improved = true;
-        // vecinos: de momento todas las permutaciones haciendo un swap entre dos elementos de la mejor solución actual.
-    clock_t start = clock();
-    while(improved)
-        improved = grasp(P.upgrades, P.car_in_class, P.classes, solution, curr_sol, ass_chain, tabu,
-                        output_file, start);
+    while (improved)
+    {
+        // Neighbourhood search.
+        Matrix neighbours = neighbourhood(solution, tabu_list);  // PQ con pena y solucion
+        // Find the best neighbour.
+        // The best neighbour is the one with the lowest penalization.
+        // If there are several neighbours with the same penalization, the best one is the one
+        // that minimizes the number of cars in the class.
+
+    }
+    
+
 }
 
 
@@ -325,7 +262,7 @@ int main(int argc, const char *argv[])
     ifstream input(argv[1],ifstream::in);
     
     Production P = read_input_file(input);
-    mh(P, argv[2]);
+    grasp(P, argv[2]);
     
     return (0);
 }
