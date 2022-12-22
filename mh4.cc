@@ -272,19 +272,13 @@ bool tabu(TabuList tabu_list, const Vec& solution)
 Matrix neighbourhood(Vec& solution, TabuList& tabu_list)
 {
     Matrix neighbours;
-    for (int x = 0; x < C; x++) {  // choose a car.
-        int i = rand() % C;
+    for (int i = 0; i < C; i++) {  // choose a car.
         for (int j = 0; j < C; j++) {  // swap with all the others.
-            if (i != j /*and solution[i] != solution[j]*/) {  // solution[i] != solution[j] //////////////////////////////////////
+            if (i != j and solution[i] != solution[j]) {  // solution[i] != solution[j] //////////////////////////////////////
                 swap(solution[i], solution[j]);
-                if (not tabu(tabu_list, solution)) {
-                    neighbours.push_back(solution);
-                    // Update tabu list.
-                    tabu_list.push(solution);
-                    if ((int)tabu_list.size() > C)
-                        tabu_list.pop();
-                }
+                neighbours.push_back(solution);
                 swap(solution[i], solution[j]);
+                
             }
         }
     }
@@ -319,8 +313,9 @@ void grasp(Production& P, const string& output_file)
         if ((int)tabu_list.size() > C)
             tabu_list.pop();   
         // Update current solution.
-        if (best_neighbour != solution) {
+        if (not tabu(tabu_list, best_neighbour)) {
             solution = best_neighbour;
+            tabu_list.push(best_neighbour);
             if (T < tmp) {  // if the best neighbour is equally good, no need to update the solution.
                 ofstream output(output_file, ofstream::out);
                 write_output_file(solution, output, duration(start));
