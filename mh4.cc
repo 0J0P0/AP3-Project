@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <climits>
@@ -226,6 +227,71 @@ void greedy(const vector<Upgrade>& upgrades, Vec car_in_class, const vector<Clas
 /***********************************************************************************************************/
 
 
+// Returns the best neighbour of the current solution.
+Vec evaluate_candidates(const vector<Upgrade>& upgrades, const Vec& car_in_class, const vector<Class>& classes,
+                        Matrix& ass_chain, const Matrix& neighbours, const Vec& solution, bool& strictly_better)
+{
+    int N = neighbours.size();
+    Vec best_solution = solution;
+    for (int n = 0; n < N; n++) {
+        int pen = 0;
+        for (int k = 0; k < C; k++) {
+            int class_id = neighbours[n][k];
+            for (int m = 0; m < M; m++)
+                ass_chain[m][k] = classes[class_id][m];
+            pen += sum_penalization(upgrades, ass_chain, k);
+            if (pen > T) // early stopping
+                break;
+        }
+        if (pen <= T) { // equally good solution to avoid local minima
+            // if (pen == T)
+            //     strictly_better = false;
+            // else
+            //     strictly_better = true;  //////////////////////////// algo pasa 
+            T = pen;
+            best_solution = neighbours[n];
+        }
+    }
+    return best_solution;
+}
+
+
+// Returns true if a solution is already in the tabu list.
+bool tabu(TabuList tabu_list, const Vec& solution)
+{
+    while (not tabu_list.empty()) {
+        if (tabu_list.front() == solution)
+            return true;
+        tabu_list.pop();
+    }
+    return false;
+}
+
+
+// Returns the neighbours of the current solution. The neighbours are chosen by swapping a random car with all the others.
+Matrix neighbourhood(Vec& solution, TabuList& tabu_list)
+{
+    Matrix neighbours;
+    for (int x = 0; x < C; x++) {  // choose a car.
+        int i = rand() % C;
+        for (int j = 0; j < C; j++) {  // swap with all the others.
+            if (i != j /*and solution[i] != solution[j]*/) {  // solution[i] != solution[j] //////////////////////////////////////
+                swap(solution[i], solution[j]);
+                if (not tabu(tabu_list, solution)) {
+                    neighbours.push_back(solution);
+                    // Update tabu list.
+                    tabu_list.push(solution);
+                    if ((int)tabu_list.size() > C)
+                        tabu_list.pop();
+                }
+                swap(solution[i], solution[j]);
+            }
+        }
+    }
+    return neighbours;
+}
+
+
 // Finds a local minimum by swapping two cars. Using a grasp-like approach.
 void grasp(Production& P, const string& output_file)
 {
@@ -235,21 +301,35 @@ void grasp(Production& P, const string& output_file)
 
     // Phase 1: Solution construction. Greedy approach.
     greedy(P.upgrades, P.car_in_class, P.classes, ass_chain, solution, output_file, clock());
+    
     // Phase 2: Solution improvement. Tabu search.
     TabuList tabu_list;
     bool improved = true;
-    while (improved)
-    {
+    clock_t start = clock();
+    while (improved) {
         // Neighbourhood search.
         Matrix neighbours = neighbourhood(solution, tabu_list);  // PQ con pena y solucion
+
         // Find the best neighbour.
-        // The best neighbour is the one with the lowest penalization.
-        // If there are several neighbours with the same penalization, the best one is the one
-        // that minimizes the number of cars in the class.
-
+        int tmp = T;
+        bool strictly_better = true;
+        Vec best_neighbour = evaluate_candidates(P.upgrades, P.car_in_class, P.classes, ass_chain, neighbours,
+                                                    solution, strictly_better);
+        // Update tabu list.
+        if ((int)tabu_list.size() > C)
+            tabu_list.pop();   
+        // Update current solution.
+        if (best_neighbour != solution) {
+            solution = best_neighbour;
+            if (T < tmp) {  // if the best neighbour is equally good, no need to update the solution.
+                ofstream output(output_file, ofstream::out);
+                write_output_file(solution, output, duration(start));
+            }
+            improved = true;
+        } else
+            improved = false;
+        // cout << improved << endl;
     }
-    
-
 }
 
 
@@ -265,4 +345,4 @@ int main(int argc, const char *argv[])
     grasp(P, argv[2]);
     
     return (0);
-}
+}   
