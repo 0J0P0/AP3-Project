@@ -227,13 +227,13 @@ void greedy(const vector<Upgrade>& upgrades, Vec car_in_class, const vector<Clas
 
 
 // Creates the needed variables and calls a greedy function to reach a semi-optimal order of production.
-void invoke_greedy(Production& P, const string& output_file)
+void invoke_greedy(Production& P, const string& output_file, clock_t start)
 {
     T = INT_MAX;
     Vec solution(C, -1);
     Matrix ass_chain(M, Vec(C, -1));  // assembly chain of cars and their upgrades.
 
-    greedy(P.upgrades, P.car_in_class, P.classes, ass_chain, solution, output_file, clock());
+    greedy(P.upgrades, P.car_in_class, P.classes, ass_chain, solution, output_file, start);
 }
 
 
@@ -244,9 +244,9 @@ int main(int argc, const char *argv[])
         exit(1);
     }
     ifstream input(argv[1],ifstream::in);
-    
+    clock_t start = clock();
     Production P = read_input_file(input);
-    invoke_greedy(P, argv[2]);
+    invoke_greedy(P, argv[2], start);
     
     return (0);
 }
